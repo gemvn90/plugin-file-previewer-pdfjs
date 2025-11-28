@@ -1,0 +1,15 @@
+src/
+scripts/
+tsconfig.json
+rollup.config.js
+*.md
+!README.md
+node_modules/
+.git/
+.gitignore
+*.log
+.DS_Store
+.env
+.vscode/
+.idea/
+*.tgz

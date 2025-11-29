@@ -4,7 +4,7 @@
   "displayName.zh-CN": "PDF 文件预览",
   "description": "PDF preview plugin using PDF.js",
   "description.zh-CN": "使用 PDF.js 实现 PDF 文件预览",
-  "version": "1.9.18",
+  "version": "1.9.19",
   "license": "AGPL-3.0",
   "main": "dist/server/index.js",
   "exports": {

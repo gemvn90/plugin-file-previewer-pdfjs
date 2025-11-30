@@ -1,5 +1,5 @@
 {
-  "name": "@nocobase/plugin-file-previewer-pdfjs",
+  "name": "plugin-file-previewer-pdfjs",
   "displayName": "PDF File Previewer",
   "displayName.zh-CN": "PDF 文件预览",
   "description": "PDF preview plugin using PDF.js",

@@ -16,10 +16,7 @@ export default {
       'react-i18next': 'ReactI18next',
       'react-router-dom': 'ReactRouterDOM',
       'antd': 'Antd',
-      '@ant-design/icons': 'AntdIcons',
-      'pdfjs-dist': 'pdfjsLib',
-      'react-pdf': 'ReactPDF',
-      'file-saver': 'FileSaver'
+      '@ant-design/icons': 'AntdIcons'
     },
   },
   plugins: [

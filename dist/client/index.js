@@ -1,4 +1,4 @@
-define(['exports', '@nocobase/client', 'react', 'antd', 'react-i18next'], (function (exports, client, React, antd, reactI18next) { 'use strict';
+define(['exports', '@nocobase/client', 'react', 'antd', '@ant-design/icons', 'react-i18next'], (function (exports, client, React, antd, icons, reactI18next) { 'use strict';
 
   var process = { env: { NODE_ENV: "production" }, browser: true };
 
@@ -21726,8 +21726,7 @@ define(['exports', '@nocobase/client', 'react', 'antd', 'react-i18next'], (funct
     return t;
   }
 
-  // Configure PDF.js worker
-  pdfjs.GlobalWorkerOptions.workerSrc = "//cdnjs.cloudflare.com/ajax/libs/pdf.js/".concat(pdfjs.version, "/pdf.worker.min.js");
+  var ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
   function PDFPreviewer(_ref) {
     var index = _ref.index,
       _ref$list = _ref.list,
@@ -21765,6 +21764,78 @@ define(['exports', '@nocobase/client', 'react', 'antd', 'react-i18next'], (funct
       _useState0 = _slicedToArray(_useState9, 2),
       loading = _useState0[0],
       setLoading = _useState0[1];
+    var _useState1 = React.useState(1),
+      _useState10 = _slicedToArray(_useState1, 2),
+      scale = _useState10[0],
+      setScale = _useState10[1];
+    var _useState11 = React.useState(0),
+      _useState12 = _slicedToArray(_useState11, 2),
+      rotation = _useState12[0],
+      setRotation = _useState12[1];
+    var _useState13 = React.useState(1200),
+      _useState14 = _slicedToArray(_useState13, 2),
+      pageWidth = _useState14[0];
+      _useState14[1];
+    var _useState15 = React.useState(''),
+      _useState16 = _slicedToArray(_useState15, 2),
+      searchText = _useState16[0],
+      setSearchText = _useState16[1];
+    var _useState17 = React.useState(0),
+      _useState18 = _slicedToArray(_useState17, 2),
+      searchMatches = _useState18[0],
+      setSearchMatches = _useState18[1];
+    var _useState19 = React.useState(0),
+      _useState20 = _slicedToArray(_useState19, 2),
+      currentMatch = _useState20[0],
+      setCurrentMatch = _useState20[1];
+    var _useState21 = React.useState(false),
+      _useState22 = _slicedToArray(_useState21, 2),
+      showSearch = _useState22[0],
+      setShowSearch = _useState22[1];
+    var _useState23 = React.useState(false),
+      _useState24 = _slicedToArray(_useState23, 2),
+      workerReady = _useState24[0],
+      setWorkerReady = _useState24[1];
+    var textLayerRef = React.useRef(null);
+
+    // Configure PDF.js worker for version 3.x
+    // CRITICAL: react-pdf sets a default worker URL that causes AMD issues
+    // We MUST use Blob URL to prevent AMD/RequireJS from intercepting
+    React.useEffect(function () {
+      var _pdfjs$GlobalWorkerOp;
+      var workerUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/".concat(pdfjs.version, "/pdf.worker.min.js");
+
+      // Check if we already created a blob URL (avoid re-fetch on hot reload)
+      if ((_pdfjs$GlobalWorkerOp = pdfjs.GlobalWorkerOptions.workerSrc) !== null && _pdfjs$GlobalWorkerOp !== void 0 && _pdfjs$GlobalWorkerOp.startsWith('blob:')) {
+        console.log('Worker already configured with Blob URL:', pdfjs.GlobalWorkerOptions.workerSrc);
+        setWorkerReady(true);
+        return;
+      }
+      console.log('Fetching worker from CDN to create Blob URL...');
+
+      // Always fetch and create blob URL to override react-pdf's default
+      // This prevents AMD from intercepting the URL
+      fetch(workerUrl).then(function (response) {
+        if (!response.ok) {
+          throw new Error("Failed to fetch worker: ".concat(response.status, " ").concat(response.statusText));
+        }
+        console.log('Worker fetched successfully, creating blob...');
+        return response.blob();
+      }).then(function (blob) {
+        // Create blob URL that AMD won't intercept
+        var blobUrl = URL.createObjectURL(blob);
+        pdfjs.GlobalWorkerOptions.workerSrc = blobUrl;
+        console.log('PDF.js worker configured via Blob URL:', blobUrl);
+        setWorkerReady(true);
+      })["catch"](function (err) {
+        console.error('Failed to load PDF.js worker from CDN:', err);
+        // Fallback: Try direct URL (may still be intercepted by AMD)
+        pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+        console.warn('Fallback: Using direct CDN URL');
+        setWorkerReady(true);
+      });
+    }, []); // Run once on mount
+
     React.useEffect(function () {
       if (!(file !== null && file !== void 0 && file.url)) return;
       try {
@@ -21798,62 +21869,375 @@ define(['exports', '@nocobase/client', 'react', 'antd', 'react-i18next'], (funct
         return Math.max(1, Math.min(prev + offset, numPages || 1));
       });
     };
+    var handlePageChange = function handlePageChange(value) {
+      if (value && value >= 1 && value <= (numPages || 1)) {
+        setPageNumber(value);
+      }
+    };
+    var handleZoomIn = function handleZoomIn() {
+      setScale(function (prev) {
+        var currentIndex = ZOOM_LEVELS.findIndex(function (level) {
+          return level >= prev;
+        });
+        var nextIndex = currentIndex < ZOOM_LEVELS.length - 1 ? currentIndex + 1 : ZOOM_LEVELS.length - 1;
+        return ZOOM_LEVELS[nextIndex];
+      });
+    };
+    var handleZoomOut = function handleZoomOut() {
+      setScale(function (prev) {
+        var currentIndex = ZOOM_LEVELS.findIndex(function (level) {
+          return level >= prev;
+        });
+        var prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+        return ZOOM_LEVELS[prevIndex];
+      });
+    };
+    var handleZoomChange = function handleZoomChange(value) {
+      setScale(value);
+    };
+    var handleRotateLeft = function handleRotateLeft() {
+      setRotation(function (prev) {
+        return (prev - 90) % 360;
+      });
+    };
+    var handleRotateRight = function handleRotateRight() {
+      setRotation(function (prev) {
+        return (prev + 90) % 360;
+      });
+    };
+    var handleFitWidth = function handleFitWidth() {
+      setScale(1);
+    };
+    var handleFitPage = function handleFitPage() {
+      setScale(0.75);
+    };
     var handleClose = function handleClose() {
       onSwitchIndex(null);
     };
-    return /*#__PURE__*/React.createElement(antd.Modal, {
+    React.useEffect(function () {
+      if (searchText && textLayerRef.current) {
+        performSearch();
+      } else {
+        clearSearchHighlights();
+      }
+    }, [searchText, pageNumber]);
+    var performSearch = function performSearch() {
+      if (!searchText || !textLayerRef.current) {
+        setSearchMatches(0);
+        setCurrentMatch(0);
+        return;
+      }
+      clearSearchHighlights();
+      var textLayer = textLayerRef.current.querySelector('.react-pdf__Page__textContent');
+      if (!textLayer) return;
+      var textItems = Array.from(textLayer.querySelectorAll('span'));
+      var matchCount = 0;
+      textItems.forEach(function (item) {
+        var text = item.textContent || '';
+        var lowerText = text.toLowerCase();
+        var lowerSearch = searchText.toLowerCase();
+        if (lowerText.includes(lowerSearch)) {
+          var startIndex = lowerText.indexOf(lowerSearch);
+          var beforeMatch = text.substring(0, startIndex);
+          var match = text.substring(startIndex, startIndex + searchText.length);
+          var afterMatch = text.substring(startIndex + searchText.length);
+          item.innerHTML = '';
+          if (beforeMatch) {
+            item.appendChild(document.createTextNode(beforeMatch));
+          }
+          var mark = document.createElement('mark');
+          mark.textContent = match;
+          mark.style.backgroundColor = '#ffff00';
+          mark.style.color = '#000';
+          mark.setAttribute('data-match-index', matchCount.toString());
+          item.appendChild(mark);
+          if (afterMatch) {
+            item.appendChild(document.createTextNode(afterMatch));
+          }
+          matchCount++;
+        }
+      });
+      setSearchMatches(matchCount);
+      if (matchCount > 0) {
+        setCurrentMatch(1);
+        highlightCurrentMatch(1);
+      } else {
+        setCurrentMatch(0);
+      }
+    };
+    var clearSearchHighlights = function clearSearchHighlights() {
+      if (!textLayerRef.current) return;
+      var marks = textLayerRef.current.querySelectorAll('mark');
+      marks.forEach(function (mark) {
+        var _mark$parentNode;
+        var text = mark.textContent || '';
+        var textNode = document.createTextNode(text);
+        (_mark$parentNode = mark.parentNode) === null || _mark$parentNode === void 0 || _mark$parentNode.replaceChild(textNode, mark);
+      });
+    };
+    var highlightCurrentMatch = function highlightCurrentMatch(matchIndex) {
+      if (!textLayerRef.current) return;
+      var marks = textLayerRef.current.querySelectorAll('mark');
+      marks.forEach(function (mark, index) {
+        if (index === matchIndex - 1) {
+          mark.style.backgroundColor = '#ff9632';
+          mark.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        } else {
+          mark.style.backgroundColor = '#ffff00';
+        }
+      });
+    };
+    var handleSearchNext = function handleSearchNext() {
+      if (searchMatches === 0) return;
+      var nextMatch = currentMatch >= searchMatches ? 1 : currentMatch + 1;
+      setCurrentMatch(nextMatch);
+      highlightCurrentMatch(nextMatch);
+    };
+    var handleSearchPrev = function handleSearchPrev() {
+      if (searchMatches === 0) return;
+      var prevMatch = currentMatch <= 1 ? searchMatches : currentMatch - 1;
+      setCurrentMatch(prevMatch);
+      highlightCurrentMatch(prevMatch);
+    };
+    var handleSearchChange = function handleSearchChange(e) {
+      setSearchText(e.target.value);
+    };
+    var handleSearchClear = function handleSearchClear() {
+      setSearchText('');
+      setSearchMatches(0);
+      setCurrentMatch(0);
+      setShowSearch(false);
+      clearSearchHighlights();
+    };
+    var toolbar = /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '12px 16px',
+        backgroundColor: '#f5f5f5',
+        borderRadius: '4px',
+        marginBottom: '12px',
+        gap: '8px',
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement(antd.Space.Compact, null, /*#__PURE__*/React.createElement(antd.Tooltip, {
+      title: t('Previous page')
+    }, /*#__PURE__*/React.createElement(antd.Button, {
+      icon: /*#__PURE__*/React.createElement(icons.LeftOutlined, null),
+      onClick: function onClick() {
+        return changePage(-1);
+      },
+      disabled: pageNumber <= 1
+    })), /*#__PURE__*/React.createElement(antd.InputNumber, {
+      min: 1,
+      max: numPages || 1,
+      value: pageNumber,
+      onChange: handlePageChange,
+      style: {
+        width: 60
+      }
+    }), /*#__PURE__*/React.createElement(antd.Tooltip, {
+      title: t('Next page')
+    }, /*#__PURE__*/React.createElement(antd.Button, {
+      icon: /*#__PURE__*/React.createElement(icons.RightOutlined, null),
+      onClick: function onClick() {
+        return changePage(1);
+      },
+      disabled: pageNumber >= (numPages || 1)
+    }))), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#666',
+        fontSize: '14px'
+      }
+    }, "/ ", numPages || 0), /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 1,
+        height: 24,
+        backgroundColor: '#d9d9d9'
+      }
+    }), /*#__PURE__*/React.createElement(antd.Space.Compact, null, /*#__PURE__*/React.createElement(antd.Tooltip, {
+      title: t('Zoom out')
+    }, /*#__PURE__*/React.createElement(antd.Button, {
+      icon: /*#__PURE__*/React.createElement(icons.ZoomOutOutlined, null),
+      onClick: handleZoomOut,
+      disabled: scale <= ZOOM_LEVELS[0]
+    })), /*#__PURE__*/React.createElement(antd.Select, {
+      value: scale,
+      onChange: handleZoomChange,
+      style: {
+        width: 100
+      },
+      options: ZOOM_LEVELS.map(function (level) {
+        return {
+          label: "".concat(Math.round(level * 100), "%"),
+          value: level
+        };
+      })
+    }), /*#__PURE__*/React.createElement(antd.Tooltip, {
+      title: t('Zoom in')
+    }, /*#__PURE__*/React.createElement(antd.Button, {
+      icon: /*#__PURE__*/React.createElement(icons.ZoomInOutlined, null),
+      onClick: handleZoomIn,
+      disabled: scale >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 1,
+        height: 24,
+        backgroundColor: '#d9d9d9'
+      }
+    }), /*#__PURE__*/React.createElement(antd.Space, null, /*#__PURE__*/React.createElement(antd.Tooltip, {
+      title: t('Rotate left')
+    }, /*#__PURE__*/React.createElement(antd.Button, {
+      icon: /*#__PURE__*/React.createElement(icons.RotateLeftOutlined, null),
+      onClick: handleRotateLeft
+    })), /*#__PURE__*/React.createElement(antd.Tooltip, {
+      title: t('Rotate right')
+    }, /*#__PURE__*/React.createElement(antd.Button, {
+      icon: /*#__PURE__*/React.createElement(icons.RotateRightOutlined, null),
+      onClick: handleRotateRight
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 1,
+        height: 24,
+        backgroundColor: '#d9d9d9'
+      }
+    }), /*#__PURE__*/React.createElement(antd.Space, null, /*#__PURE__*/React.createElement(antd.Tooltip, {
+      title: t('Fit to width')
+    }, /*#__PURE__*/React.createElement(antd.Button, {
+      icon: /*#__PURE__*/React.createElement(icons.ExpandOutlined, null),
+      onClick: handleFitWidth
+    })), /*#__PURE__*/React.createElement(antd.Tooltip, {
+      title: t('Fit to page')
+    }, /*#__PURE__*/React.createElement(antd.Button, {
+      icon: /*#__PURE__*/React.createElement(icons.CompressOutlined, null),
+      onClick: handleFitPage
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 1,
+        height: 24,
+        backgroundColor: '#d9d9d9'
+      }
+    }), /*#__PURE__*/React.createElement(antd.Tooltip, {
+      title: t('Search in document')
+    }, /*#__PURE__*/React.createElement(antd.Button, {
+      icon: /*#__PURE__*/React.createElement(icons.SearchOutlined, null),
+      onClick: function onClick() {
+        return setShowSearch(!showSearch);
+      },
+      type: showSearch ? 'primary' : 'default'
+    })));
+    var searchBar = showSearch && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        padding: '8px 16px',
+        backgroundColor: '#fafafa',
+        borderRadius: '4px',
+        marginBottom: '12px',
+        gap: '8px'
+      }
+    }, /*#__PURE__*/React.createElement(antd.Input, {
+      placeholder: t('Search text...'),
+      value: searchText,
+      onChange: handleSearchChange,
+      prefix: /*#__PURE__*/React.createElement(icons.SearchOutlined, null),
+      suffix: searchText && /*#__PURE__*/React.createElement(icons.CloseOutlined, {
+        onClick: handleSearchClear,
+        style: {
+          cursor: 'pointer',
+          color: '#999'
+        }
+      }),
+      style: {
+        flex: 1,
+        maxWidth: 300
+      },
+      onPressEnter: handleSearchNext
+    }), searchMatches > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#666',
+        fontSize: '14px',
+        whiteSpace: 'nowrap'
+      }
+    }, currentMatch, " / ", searchMatches), /*#__PURE__*/React.createElement(antd.Space.Compact, null, /*#__PURE__*/React.createElement(antd.Tooltip, {
+      title: t('Previous match')
+    }, /*#__PURE__*/React.createElement(antd.Button, {
+      icon: /*#__PURE__*/React.createElement(icons.UpOutlined, null),
+      onClick: handleSearchPrev,
+      disabled: searchMatches === 0,
+      size: "small"
+    })), /*#__PURE__*/React.createElement(antd.Tooltip, {
+      title: t('Next match')
+    }, /*#__PURE__*/React.createElement(antd.Button, {
+      icon: /*#__PURE__*/React.createElement(icons.DownOutlined, null),
+      onClick: handleSearchNext,
+      disabled: searchMatches === 0,
+      size: "small"
+    }))));
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("style", null, "\n          .react-pdf__Page__textContent {\n            position: absolute;\n            left: 0;\n            top: 0;\n            right: 0;\n            bottom: 0;\n            overflow: hidden;\n            opacity: 0.2;\n            line-height: 1.0;\n          }\n          .react-pdf__Page__textContent span {\n            color: transparent;\n            position: absolute;\n            white-space: pre;\n            cursor: text;\n            transform-origin: 0% 0%;\n          }\n          .react-pdf__Page__textContent mark {\n            color: #000;\n            opacity: 1;\n          }\n        "), /*#__PURE__*/React.createElement(antd.Modal, {
       open: index != null,
       title: file.title,
       onCancel: handleClose,
       footer: [/*#__PURE__*/React.createElement(antd.Button, {
-        key: "prev",
-        onClick: function onClick() {
-          return changePage(-1);
-        },
-        disabled: pageNumber <= 1
-      }, t('Previous')), /*#__PURE__*/React.createElement(antd.Button, {
-        key: "next",
-        onClick: function onClick() {
-          return changePage(1);
-        },
-        disabled: pageNumber >= (numPages || 1)
-      }, t('Next')), /*#__PURE__*/React.createElement(antd.Button, {
         key: "download",
+        icon: /*#__PURE__*/React.createElement(icons.DownloadOutlined, null),
         onClick: handleDownload
       }, t('Download')), /*#__PURE__*/React.createElement(antd.Button, {
         key: "close",
         onClick: handleClose
       }, t('Close'))],
-      width: "85vw",
-      centered: true
-    }, /*#__PURE__*/React.createElement(antd.Spin, {
-      spinning: loading
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        height: '70vh',
-        overflow: 'auto'
+      width: "90vw",
+      centered: true,
+      styles: {
+        body: {
+          maxHeight: '80vh',
+          overflowY: 'auto'
+        }
       }
-    }, /*#__PURE__*/React.createElement(Document, {
+    }, /*#__PURE__*/React.createElement(antd.Spin, {
+      spinning: loading || !workerReady
+    }, toolbar, searchBar, /*#__PURE__*/React.createElement("div", {
+      ref: textLayerRef,
+      style: {
+        height: '65vh',
+        overflow: 'auto',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        backgroundColor: '#525659',
+        padding: '20px'
+      }
+    }, !workerReady ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: 'white',
+        textAlign: 'center',
+        padding: 20,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        borderRadius: '4px'
+      }
+    }, t('Loading PDF worker...')) : error ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: 'white',
+        textAlign: 'center',
+        padding: 20,
+        backgroundColor: 'rgba(255,0,0,0.1)',
+        borderRadius: '4px'
+      }
+    }, t('Failed to load PDF:'), " ", error.message) : /*#__PURE__*/React.createElement(Document, {
       file: pdfUrl,
       onLoadSuccess: onDocumentLoadSuccess,
       onLoadError: onDocumentLoadError
     }, /*#__PURE__*/React.createElement(Page, {
       pageNumber: pageNumber,
-      width: 1200,
+      width: pageWidth * scale,
+      rotate: rotation,
       renderAnnotationLayer: false,
-      renderTextLayer: false
-    }))), error ? /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: 'red',
-        textAlign: 'center',
-        padding: 20
-      }
-    }, t('Failed to load PDF:'), " ", error.message) : /*#__PURE__*/React.createElement("div", {
-      style: {
-        textAlign: 'center',
-        marginTop: 16
-      }
-    }, t('Page'), " ", pageNumber, " ", t('of'), " ", numPages)));
+      renderTextLayer: true
+    }))))));
   }
 
   var PluginFilePreviewerPdfjsClient = /*#__PURE__*/function (_Plugin) {
@@ -21877,7 +22261,20 @@ define(['exports', '@nocobase/client', 'react', 'antd', 'react-i18next'], (funct
                   'Close': 'Close',
                   'Previous': 'Previous',
                   'Next': 'Next',
+                  'Previous page': 'Previous page',
+                  'Next page': 'Next page',
+                  'Zoom in': 'Zoom in',
+                  'Zoom out': 'Zoom out',
+                  'Rotate left': 'Rotate left',
+                  'Rotate right': 'Rotate right',
+                  'Fit to width': 'Fit to width',
+                  'Fit to page': 'Fit to page',
+                  'Search in document': 'Search in document',
+                  'Search text...': 'Search text...',
+                  'Previous match': 'Previous match',
+                  'Next match': 'Next match',
                   'Loading PDF...': 'Loading PDF...',
+                  'Loading PDF worker...': 'Loading PDF worker...',
                   'Failed to load PDF:': 'Failed to load PDF:'
                 });
                 this.app.i18n.addResources('zh-CN', NAMESPACE, {
@@ -21887,7 +22284,20 @@ define(['exports', '@nocobase/client', 'react', 'antd', 'react-i18next'], (funct
                   'Close': '关闭',
                   'Previous': '上一页',
                   'Next': '下一页',
+                  'Previous page': '上一页',
+                  'Next page': '下一页',
+                  'Zoom in': '放大',
+                  'Zoom out': '缩小',
+                  'Rotate left': '向左旋转',
+                  'Rotate right': '向右旋转',
+                  'Fit to width': '适合宽度',
+                  'Fit to page': '适合页面',
+                  'Search in document': '在文档中搜索',
+                  'Search text...': '搜索文本...',
+                  'Previous match': '上一个匹配',
+                  'Next match': '下一个匹配',
                   'Loading PDF...': '正在加载 PDF...',
+                  'Loading PDF worker...': '正在加载PDF工作线程...',
                   'Failed to load PDF:': '加载 PDF 失败：'
                 });
               case 1:
